@@ -1387,9 +1387,8 @@ OTHER DEALINGS IN THE SOFTWARE.
     __extends(HavingBlock, _super);
 
     function HavingBlock(options) {
-      var havings;
       HavingBlock.__super__.constructor.call(this, options);
-      havings = [];
+      this.havings = [];
     }
 
     HavingBlock.prototype.having = function() {

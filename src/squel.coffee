@@ -1090,7 +1090,7 @@ class cls.WhereBlock extends cls.Block
 class cls.HavingBlock extends cls.Block
   constructor: (options) ->
     super options
-    havings = []
+    @havings = []
 
   # Add a HAVING condition.
   #
