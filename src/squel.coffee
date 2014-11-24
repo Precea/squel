@@ -1156,7 +1156,7 @@ class cls.HavingBlock extends cls.Block
       text: ""
       values: []
 
-    if 0 >= @having.length then return ret
+    if 0 >= @havings.length then return ret
 
     havingStr = ""
 

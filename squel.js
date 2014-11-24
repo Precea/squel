@@ -1474,7 +1474,7 @@ OTHER DEALINGS IN THE SOFTWARE.
         text: "",
         values: []
       };
-      if (0 >= this.having.length) {
+      if (0 >= this.havings.length) {
         return ret;
       }
       havingStr = "";
