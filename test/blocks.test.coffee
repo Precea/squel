@@ -1163,6 +1163,158 @@ test['Blocks'] =
 
         assert.ok formatValueSpy.notCalled
 
+  'HavingBlock':
+    beforeEach: ->
+      @cls = squel.cls.HavingBlock
+      @inst = new @cls()
+
+    'instanceof of Block': ->
+      assert.instanceOf @inst, squel.cls.Block
+
+    'calls base constructor': ->
+      spy = test.mocker.spy(squel.cls.Block.prototype, 'constructor')
+
+      @inst = new @cls
+        dummy: true
+
+      assert.ok spy.calledWithExactly
+        dummy: true
+
+    'initial field values': ->
+      assert.same [], @inst.havings
+
+    'having()':
+      'adds to list': ->
+        @inst.having('a = 1')
+        @inst.having('b = 2 OR c = 3')
+
+        assert.same [
+          {
+            text: 'a = 1'
+            values: []
+          }
+          {
+            text: 'b = 2 OR c = 3'
+            values: []
+          }
+        ], @inst.havings
+
+      'sanitizes inputs': ->
+        sanitizeFieldSpy = test.mocker.stub @cls.prototype, '_sanitizeCondition', -> return '_c'
+
+        @inst.having('a = 1')
+
+        assert.ok sanitizeFieldSpy.calledWithExactly 'a = 1'
+
+        assert.same [{
+          text: '_c'
+          values: []
+        }], @inst.havings
+
+      'handles variadic arguments': ->
+        sanitizeStub = test.mocker.stub @cls.prototype, '_sanitizeValue', _.identity
+
+        substitutes = ['hello', [1, 2, 3]]
+        @inst.having.apply @inst, ['a = ? and b in ?'].concat(substitutes)
+
+        expectedValues = _.flatten substitutes
+        for expectedValue, index in expectedValues
+          assert.ok sanitizeStub.getCall(index).calledWithExactly expectedValue
+
+        assert.same [
+          {
+            text: 'a = ? and b in (?, ?, ?)'
+            values: ['hello', 1, 2, 3]
+          }
+        ], @inst.havings
+
+    'buildStr()':
+      'output QueryBuilder ': ->
+        subquery = new squel.select()
+        subquery.field('col1').from('table1').having('field1 = ?', 10)
+        @inst.having('a in ?', subquery)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        assert.same 'HAVING (a in (SELECT col1 FROM table1 HAVING (field1 = 10))) AND (b = 2 OR c = 3) AND (d in (4, 5, 6))', @inst.buildStr()
+
+      'output nothing if no conditions set': ->
+        @inst.havings = []
+        assert.same '', @inst.buildStr()
+
+      'output WHERE ': ->
+        @inst.having('a = ?', 1)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        assert.same 'HAVING (a = 1) AND (b = 2 OR c = 3) AND (d in (4, 5, 6))', @inst.buildStr()
+
+      'Fix for hiddentao/squel#64': ->
+        @inst.having('a = ?', 1)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        # second time it should still work
+        @inst.buildStr()
+        @inst.buildStr()
+        assert.same 'HAVING (a = 1) AND (b = 2 OR c = 3) AND (d in (4, 5, 6))', @inst.buildStr()
+
+      'formats values ': ->
+        formatValueStub = test.mocker.stub @cls.prototype, '_formatValue', (a) -> '[' + a + ']'
+
+        @inst.having('a = ?', 1)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        assert.same 'HAVING (a = [1]) AND (b = [2] OR c = [3]) AND (d in ([4], [5], [6]))', @inst.buildStr()
+
+    'buildParam()':
+      'output QueryBuilder ': ->
+        subquery = new squel.select()
+        subquery.field('col1').from('table1').having('field1 = ?', 10)
+        @inst.having('a in ?', subquery)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        assert.same { text: 'HAVING (a in (SELECT col1 FROM table1 HAVING (field1 = ?))) AND (b = ? OR c = ?) AND (d in (?, ?, ?))', values: [10, 2, 3, 4, 5, 6] }, @inst.buildParam()
+
+      'output QueryBuilder expr': ->
+        subquery = new squel.select()
+        subquery.field('col1').from('table1').having('field1 = ?', 10)
+        expr = squel.expr().and('a in ?',subquery)
+        .and_begin().or('b = ?', 2).or('c = ?', 3).end().and_begin()
+        .and('d in ?', [4, 5, 6]).end()
+        @inst.having(expr)
+
+        #assert.same { text: '', values: [10, 2, 3, 4, 5, 6] }, @inst.buildParam()
+        assert.same { text: 'HAVING (a in (SELECT col1 FROM table1 HAVING (field1 = ?)) AND (b = ? OR c = ?) AND (d in (?, ?, ?)))', values: [10, 2, 3, 4, 5, 6] }, @inst.buildParam()
+
+      'output nothing if no conditions set': ->
+        @inst.havings = []
+        assert.same { text: '', values: [] }, @inst.buildParam()
+
+      'output WHERE ': ->
+        @inst.having('a = ?', 1)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        assert.same { text: 'HAVING (a = ?) AND (b = ? OR c = ?) AND (d in (?, ?, ?))', values: [1, 2, 3, 4, 5, 6] }, @inst.buildParam()
+
+      'formats value types as params': ->
+        formatValueSpy = test.mocker.spy @cls.prototype, '_formatValue'
+        test.mocker.stub @cls.prototype, '_formatValueAsParam', (a) -> '[' + a + ']'
+
+        @inst.having('a = ?', 1)
+        @inst.having('b = ? OR c = ?', 2, 3)
+        @inst.having('d in ?', [4, 5, 6])
+
+        assert.same {
+          text: 'HAVING (a = ?) AND (b = ? OR c = ?) AND (d in (?, ?, ?))',
+          values: ['[1]', '[2]', '[3]', '[4]', '[5]', '[6]']
+        }, @inst.buildParam()
+
+        assert.ok formatValueSpy.notCalled
+
 
   'OrderByBlock':
     beforeEach: ->
