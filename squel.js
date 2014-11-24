@@ -1432,7 +1432,7 @@ OTHER DEALINGS IN THE SOFTWARE.
         }
       }
       if ("" !== finalCondition) {
-        return having.push({
+        return this.havings.push({
           text: finalCondition,
           values: finalValues
         });
@@ -1441,7 +1441,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 
     HavingBlock.prototype.buildStr = function(queryBuilder) {
       var c, having, havingStr, idx, pIndex, _i, _j, _len, _ref5, _ref6;
-      if (0 >= this.having.length) {
+      if (0 >= this.havings.length) {
         return "";
       }
       havingStr = "";

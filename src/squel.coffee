@@ -1124,13 +1124,13 @@ class cls.HavingBlock extends cls.Block
           finalCondition += c
 
     if "" isnt finalCondition
-      having.push
+      @havings.push
         text: finalCondition
         values: finalValues
 
 
   buildStr: (queryBuilder) ->
-    if 0 >= @having.length then return ""
+    if 0 >= @havings.length then return ""
 
     havingStr = ""
 
